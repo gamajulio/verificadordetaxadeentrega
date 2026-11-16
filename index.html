@@ -25,7 +25,7 @@
 <body>
 
 <div class="container">
-    <h2>Calculadora de Frete - Multi-Lojas</h2>
+    <h2>Calculadora de Taxa de Entrega - Zeny</h2>
     
     <!-- Menu suspenso para selecionar a loja de origem -->
     <div class="form-group">
@@ -64,8 +64,7 @@
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
                 { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
                 { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
-                { limite: 999, valor: 40.00 }
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
             ]
         },
         manaira: {
@@ -77,8 +76,7 @@
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
                 { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
                 { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
-                { limite: 999, valor: 40.00 }
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
             ]
         },
         mangabeira: {
@@ -90,8 +88,7 @@
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
                 { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
                 { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
-                { limite: 999, valor: 40.00 }
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
             ]
         },
         bessa: {
@@ -103,8 +100,7 @@
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
                 { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
                 { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
-                { limite: 999, valor: 40.00 }
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
             ]
         }
     };
@@ -126,7 +122,7 @@
         const queryCompleta = endereco.toLowerCase().includes('joão pessoa') ? endereco : endereco + ", João Pessoa - PB";
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(queryCompleta);
         try {
-            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteApp/1.0' } });
+            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteZeny/1.0' } });
             const dados = await resposta.json();
             if (dados && dados.length > 0) {
                 return { lat: parseFloat(dados[0].lat), lon: parseFloat(dados[0].lon) };
@@ -202,7 +198,17 @@
             const distanciaMetros = rotas[0].summary.totalDistance;
             const distanciaKm = distanciaMetros / 1000;
 
-            let taxaOnline = 40.00;
+            // Validação de limite máximo de 20 km
+            if (distanciaKm > 20) {
+                divResultado.innerHTML = `
+                    🏪 <strong>Origem:</strong> ${dadosLoja.nome}<br>
+                    📍 <strong>Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br><br>
+                    ❌ <strong>Consulta indisponível devido distância, contate Júlio para mais informações</strong>
+                `;
+                return;
+            }
+
+            let taxaOnline = 0;
             for (let faixa of dadosLoja.tabela) {
                 if (distanciaKm <= faixa.limite) {
                     taxaOnline = faixa.valor;
