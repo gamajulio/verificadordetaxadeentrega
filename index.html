@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Taxa de Entrega</title>
+    <title>Calculadora de Taxa de Entrega (Rotas Reais)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Importando o plugin Leaflet Routing Machine para desenhar a rota -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
         h2 { color: #333; text-align: center; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
@@ -15,27 +17,30 @@
         button { background-color: #28a745; color: white; border: none; padding: 10px 15px; width: 100%; border-radius: 4px; font-size: 16px; cursor: pointer; }
         button:hover { background-color: #218838; }
         #resultado { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; }
-        #map { height: 200px; margin-top: 15px; border-radius: 4px; display: none; }
+        #map { height: 350px; margin-top: 15px; border-radius: 4px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Calculadora de Frete</h2>
+    <h2>Calculadora de Frete por Rota</h2>
     <div class="form-group">
         <label for="endereco">Endereço do Cliente:</label>
         <input type="text" id="endereco" placeholder="Ex: Rua Exemplo, 123, João Pessoa">
     </div>
-    <button onclick="calcularFrete()">Calcular Taxa</button>
+    <button onclick="calcularFrete()">Calcular Rota e Taxa</button>
 
     <div id="resultado"></div>
     <div id="map"></div>
 </div>
 
+<!-- Scripts do Leaflet e do Roteamento -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script>
     const ENDERECO_ORIGEM = "Av. Camilo de Holanda, 19, João Pessoa - PB";
 
+    // Defina as faixas da sua tabela de frete por km de rota real
     const TABELA_FRETE = [
         { limite: 3, valor: 8.00 },
         { limite: 6, valor: 12.00 },
@@ -44,6 +49,7 @@
     ];
 
     let map = null;
+    let routingControl = null;
 
     async function geocodificar(endereco) {
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(endereco);
@@ -60,17 +66,6 @@
         }
     }
 
-    function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * (Math.PI / 180);
-        const dLon = (lon2 - lon1) * (Math.PI / 180);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
-
     async function calcularFrete() {
         const enderecoCliente = document.getElementById('endereco').value;
         const divResultado = document.getElementById('resultado');
@@ -82,25 +77,57 @@
         }
 
         divResultado.style.display = 'block';
-        divResultado.innerHTML = 'Buscando endereço e calculando... ⏳';
-        divMap.style.display = 'none';
+        divResultado.innerHTML = 'Calculando o trajeto pelas ruas... ⏳';
 
-        try {
-            const origem = await geocodificar(ENDERECO_ORIGEM);
-            const destino = await geocodificar(enderecoCliente);
+        const origem = await geocodificar(ENDERECO_ORIGEM);
+        const destino = await geocodificar(enderecoCliente);
 
-            if (!origem) {
-                divResultado.innerHTML = '❌ Erro: Não foi possível localizar o endereço da sua loja cadastrada no código.';
-                return;
+        if (!origem || !destino) {
+            divResultado.innerHTML = '❌ Não foi possível encontrar um dos endereços. Tente especificar melhor o bairro e a cidade.';
+            return;
+        }
+
+        divMap.style.display = 'block';
+
+        // Inicializa o mapa se ainda não existir
+        if (!map) {
+            map = L.map('map').setView([origem.lat, origem.lon], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Remove a rota anterior se já houver uma desenhada
+        if (routingControl) {
+            map.removeControl(routingControl);
+        }
+
+        // Cria o roteamento real pelas ruas usando OSRM
+        routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(origem.lat, origem.lon),
+                L.latLng(destino.lat, destino.lon)
+            ],
+            routeWhileDragging: false,
+            showAlternatives: false,
+            fitSelectedRoutes: true,
+            language: 'pt',
+            lineOptions: {
+                styles: [{ color: '#007bff', opacity: 0.8, weight: 6 }]
+            },
+            // Esconde a caixinha de texto de instruções passo a passo padrão para focar só no valor
+            createMarker: function(i, wp) {
+                return L.marker(wp.latLng).bindPopup(i === 0 ? "Sua Loja" : "Cliente");
             }
+        }).addTo(map);
 
-            if (!destino) {
-                divResultado.innerHTML = '❌ Endereço do cliente não encontrado. Tente digitar incluindo o nome do bairro e da cidade.';
-                return;
-            }
+        // Ouve o evento de quando a rota é calculada com sucesso pelo OSRM
+        routingControl.on('routesfound', function(e) {
+            const rotas = e.routes;
+            const distanciaMetros = rotas[0].summary.totalDistance; // Distância em metros
+            const distanciaKm = distanciaMetros / 1000; // Convertendo para KM
 
-            const distanciaKm = calcularDistanciaHaversine(origem.lat, origem.lon, destino.lat, destino.lon);
-            
+            // Descobrir a taxa na tabela baseada na distância real
             let valorTaxa = 0;
             for (let faixa of TABELA_FRETE) {
                 if (distanciaKm <= faixa.limite) {
@@ -110,33 +137,14 @@
             }
 
             divResultado.innerHTML = `
-                <strong>📍 Distância estimada:</strong> ${distanciaKm.toFixed(2)} km<br>
+                <strong>🚗 Distância Real da Rota:</strong> ${distanciaKm.toFixed(2)} km<br>
                 <strong>💰 Taxa de Entrega:</strong> R$ ${valorTaxa.toFixed(2)}
             `;
+        });
 
-            divMap.style.display = 'block';
-            if (!map) {
-                map = L.map('map').setView([destino.lat, destino.lon], 14);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(map);
-            } else {
-                map.setView([destino.lat, destino.lon], 14);
-            }
-
-            map.eachLayer((layer) => {
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
-                }
-            });
-
-            L.marker([origem.lat, origem.lon]).addTo(map).bindPopup('Sua Loja');
-            L.marker([destino.lat, destino.lon]).addTo(map).bindPopup('Cliente').openPopup();
-
-        } catch (erro) {
-            divResultado.innerHTML = '❌ Ocorreu um erro inesperado ao processar.';
-            console.error(erro);
-        }
+        routingControl.on('routingerror', function() {
+            divResultado.innerHTML = '❌ Erro ao calcular a rota de tráfego entre os pontos.';
+        });
     }
 </script>
 
