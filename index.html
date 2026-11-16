@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Taxa de Entrega</title>
+    <!-- Importando o Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { color: #333; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #28a745; color: white; border: none; padding: 10px 15px; width: 100%; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        #resultado { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; }
+        #map { height: 200px; margin-top: 15px; border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Calculadora de Frete</h2>
+    <div class="form-group">
+        <label for="endereco">Endereço do Cliente (Rua, Número, Bairro/Cidade):</label>
+        <input type="text" id="endereco" placeholder="Ex: Av. Epitácio Pessoa, João Pessoa">
+    </div>
+    <button onclick="calcularFrete()">Calcular Taxa</button>
+
+    <div id="resultado"></div>
+    <div id="map"></div>
+</div>
+
+<!-- Importando o Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Defina o endereço fixo da sua loja/empresa aqui
+    const ENDERECO_ORIGEM = "Av. Camilo de Holanda, 19, João Pessoa - PB";
+
+    // Tabela de Frete: [Limite em KM, Valor em R$]
+    const TABELA_FRETE = [
+        { limite: 1, valor: 7 },
+        { limite: 2, valor: 8 },
+        { limite: 3, valor: 10 },
+        { limite: 4, valor: 11 }
+{ limite: 5, valor: 13 },
+        { limite: 6, valor: 14 },
+        { limite: 7, valor: 15 },
+        { limite: 8, valor: 17 }
+{ limite: 9, valor: 18 },
+        { limite: 10, valor: 20 },
+        { limite: 11, valor: 21 },
+        { limite: 12, valor: 23 }
+{ limite: 13, valor: 24 },
+        { limite: 14, valor: 26 },
+        { limite: 15, valor: 27 },
+        { limite: 16, valor: 28 }
+{ limite: 17, valor: 30 },
+        { limite: 18, valor: 31 },
+        { limite: 19, valor: 33 },
+        { limite: 20, valor: 34 }
+ // Acima de 20km até o limite máximo
+    ];
+
+    let map = null;
+
+    async function geocodificar(endereco) {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(endereco);
+        try {
+            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteWeb/1.0' } });
+            const dados = await resposta.json();
+            if (dados && dados.length > 0) {
+                return { lat: parseFloat(dados[0].lat), lon: parseFloat(dados[0].lon) };
+            }
+            return null;
+        } catch (e) {
+            console.error(e);
+            return null;
+        }
+    }
+
+    function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Raio da Terra em km
+        const dLat = (lat2 - lat1) * (Math.PI / 180);
+        const dLon = (lon2 - lon1) * (Math.PI / 180);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    async function calcularFrete() {
+        const enderecoCliente = document.getElementById('endereco').value;
+        const divResultado = document.getElementById('resultado');
+        const divMap = document.getElementById('map');
+
+        if (!enderecoCliente) {
+            alert('Por favor, digite o endereço do cliente.');
+            return;
+        }
+
+        divResultado.style.display = 'block';
+        divResultado.innerHTML = 'Calculando rota e taxa... ⏳';
+
+        // 1. Coordenadas da Loja e do Destino
+        const origem = await geocodificar(ENDERECO_ORIGEM);
+        const destino = await geocodificar(enderecoCliente);
+
+        if (!origem || !destino) {
+            divResultado.innerHTML = '❌ Não foi possível encontrar um dos endereços. Tente especificar melhor (inclua bairro ou cidade).';
+            return;
+        }
+
+        // 2. Calcular Distância
+        const distanciaKm = calcularDistanciaHaversine(origem.lat, origem.lon, destino.lat, destino.lon);
+        
+        // 3. Descobrir a Taxa na Tabela
+        let valorTaxa = 0;
+        for (let faixa of TABELA_FRETE) {
+            if (distanciaKm <= faixa.limite) {
+                valorTaxa = faixa.valor;
+                break;
+            }
+        }
+
+        // 4. Mostrar Resultados
+        divResultado.innerHTML = `
+            <strong>📍 Distância estimada:</strong> ${distanciaKm.toFixed(2)} km<br>
+            <strong>💰 Taxa de Entrega:</strong> R$ ${valorTaxa.toFixed(2)}
+        `;
+
+        // 5. Exibir o Mapa com Leaflet
+        divMap.style.display = 'block';
+        if (!map) {
+            map = L.map('map').setView([destino.lat, destino.lon], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        } else {
+            map.setView([destino.lat, destino.lon], 14);
+        }
+
+        // Limpar marcadores anteriores se houver e adicionar o novo
+        map.eachLayer((layer) => {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+
+        L.marker([origem.lat, origem.lon]).addTo(map).bindPopup('Sua Loja').openPopup();
+        L.marker([destino.lat, destino.lon]).addTo(map).bindPopup('Cliente');
+    }
+</script>
+
+</body>
+</html>
