@@ -53,55 +53,51 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script>
-    // Configuração das lojas com as coordenadas exatas fornecidas
+    // Função auxiliar para gerar a tabela de 1 a 40 km para cada loja
+    function gerarTabelaCompleta() {
+        let tabela = [
+            { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
+            { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
+            { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
+            { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
+            { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
+        ];
+        
+        let ultimoValor = 34;
+        for (let km = 21; km <= 40; km++) {
+            ultimoValor += 2; // Adiciona R$ 2,00 a cada km a partir de 21
+            tabela.push({ limite: km, valor: ultimoValor });
+        }
+        return tabela;
+    }
+
+    const tabelaCompartilhada = gerarTabelaCompleta();
+
+    // Configuração das 4 lojas com a nova tabela estendida até 40 km
     const LOJAS_DADOS = {
         centro: {
             nome: "Loja Centro",
             lat: -7.12046060376896, 
             lon: -34.877878247696444,
-            tabela: [
-                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
-                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
-                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
-                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
-            ]
+            tabela: tabelaCompartilhada
         },
         manaira: {
             nome: "Loja Manaíra",
             lat: -7.098598434812225, 
             lon: -34.84490290351551,
-            tabela: [
-                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
-                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
-                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
-                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
-            ]
+            tabela: tabelaCompartilhada
         },
         mangabeira: {
             nome: "Loja Mangabeira",
             lat: -7.161946461084374, 
             lon: -34.83044736118659,
-            tabela: [
-                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
-                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
-                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
-                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
-            ]
+            tabela: tabelaCompartilhada
         },
         bessa: {
             nome: "Loja Bessa",
             lat: -7.064009913287581, 
             lon: -34.84173194584224,
-            tabela: [
-                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
-                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
-                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
-                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
-            ]
+            tabela: tabelaCompartilhada
         }
     };
 
@@ -119,7 +115,7 @@
     });
 
     async function geocodificar(endereco) {
-        const queryCompleta = endereco.toLowerCase().includes('joão pessoa') ? endereco : endereco + ", João Pessoa - PB";
+        const queryCompleta = endereco.toLowerCase().includes('joão pessoa') || endereco.toLowerCase().includes('bayeux') || endereco.toLowerCase().includes('santa rita') || endereco.toLowerCase().includes('cabedelo') ? endereco : endereco + ", Paraíba";
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(queryCompleta);
         try {
             const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteZeny/1.0' } });
@@ -154,7 +150,7 @@
         const destino = await geocodificar(enderecoCliente);
 
         if (!destino) {
-            divResultado.innerHTML = '❌ Não foi possível encontrar o endereço do cliente. Tente especificar incluindo o bairro.';
+            divResultado.innerHTML = '❌ Não foi possível encontrar o endereço do cliente. Tente especificar incluindo o bairro e a cidade.';
             return;
         }
 
@@ -198,8 +194,8 @@
             const distanciaMetros = rotas[0].summary.totalDistance;
             const distanciaKm = distanciaMetros / 1000;
 
-            // Validação de limite máximo de 20 km
-            if (distanciaKm > 20) {
+            // Validação de limite máximo estendido para 40 km
+            if (distanciaKm > 40) {
                 divResultado.innerHTML = `
                     🏪 <strong>Origem:</strong> ${dadosLoja.nome}<br>
                     📍 <strong>Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br><br>
@@ -209,8 +205,11 @@
             }
 
             let taxaOnline = 0;
+            // Arredonda o km para cima para buscar na faixa correspondente (ex: 21.3 km cai na regra de 22 km)
+            const kmArredondado = Math.ceil(distanciaKm);
+            
             for (let faixa of dadosLoja.tabela) {
-                if (distanciaKm <= faixa.limite) {
+                if (kmArredondado <= faixa.limite) {
                     taxaOnline = faixa.valor;
                     break;
                 }
