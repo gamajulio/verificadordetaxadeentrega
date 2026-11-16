@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Taxa de Entrega</title>
+    <title>Calculadora de Taxa de Entrega - Multi-Lojas</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet Routing Machine CSS -->
@@ -14,7 +14,7 @@
         h2 { color: #333; text-align: center; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background-color: #28a745; color: white; border: none; padding: 10px 15px; width: 100%; border-radius: 4px; font-size: 16px; cursor: pointer; }
         button:hover { background-color: #218838; }
         #resultado { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; font-size: 16px; line-height: 1.5; }
@@ -25,11 +25,24 @@
 <body>
 
 <div class="container">
-    <h2>Calculadora de Frete por Rota Real</h2>
+    <h2>Calculadora de Frete - Multi-Lojas</h2>
+    
+    <!-- Menu suspenso para selecionar a loja de origem -->
+    <div class="form-group">
+        <label for="lojaOrigem">Selecione a Loja de Origem:</label>
+        <select id="lojaOrigem">
+            <option value="centro">Centro - Av. Camilo De Holanda, 19, João Pessoa - PB</option>
+            <option value="manaira">Manaíra - Av. Gov. Flávio Ribeiro Coutinho, 805, João Pessoa - PB</option>
+            <option value="mangabeira">Mangabeira - Av. Hilton Souto Maior, 3901, João Pessoa - PB</option>
+            <option value="bessa">Bessa - Av. Pres. Afonso Pena, 1111, João Pessoa - PB</option>
+        </select>
+    </div>
+
     <div class="form-group">
         <label for="endereco">Endereço do Cliente (aperte Enter para calcular):</label>
         <input type="text" id="endereco" placeholder="Ex: Av. Epitácio Pessoa, 500, João Pessoa">
     </div>
+    
     <button id="btnCalcular">Calcular Rota e Taxa</button>
 
     <div id="resultado"></div>
@@ -40,31 +53,57 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script>
-    const ENDERECO_ORIGEM = "Av. Camilo de Holanda, 19, João Pessoa - PB";
-
-    const TABELA_FRETE = [
-        { limite: 1, valor: 7 },
-        { limite: 2, valor: 8 },
-        { limite: 3, valor: 10 },
-        { limite: 4, valor: 11 },
-        { limite: 5, valor: 13 },
-        { limite: 6, valor: 14 },
-        { limite: 7, valor: 15 },
-        { limite: 8, valor: 17 },
-        { limite: 9, valor: 18 },
-        { limite: 10, valor: 20 },
-        { limite: 11, valor: 21 },
-        { limite: 12, valor: 23 },
-        { limite: 13, valor: 24 },
-        { limite: 14, valor: 26 },
-        { limite: 15, valor: 27 },
-        { limite: 16, valor: 28 },
-        { limite: 17, valor: 30 },
-        { limite: 18, valor: 31 },
-        { limite: 19, valor: 33 },
-        { limite: 20, valor: 34 },
-        { limite: 999, valor: 40.00 }
-    ];
+    // Dicionário contendo o endereço exato e a tabela de frete específica de cada loja
+    const LOJAS_DADOS = {
+        centro: {
+            nome: "Loja Centro",
+            endereco: "Av. Camilo De Holanda, 19, Centro, João Pessoa - PB, 58013-360",
+            tabela: [
+                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
+                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
+                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
+                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
+                { limite: 999, valor: 40.00 }
+            ]
+        },
+        manaira: {
+            nome: "Loja Manaíra",
+            endereco: "Av. Gov. Flávio Ribeiro Coutinho, 805, Manaíra, João Pessoa - PB, 58037-900",
+            tabela: [
+                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
+                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
+                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
+                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
+                { limite: 999, valor: 40.00 }
+            ]
+        },
+        mangabeira: {
+            nome: "Loja Mangabeira",
+            endereco: "Av. Hilton Souto Maior, 3901, Mangabeira, João Pessoa - PB, 58055-018",
+            tabela: [
+                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
+                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
+                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
+                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
+                { limite: 999, valor: 40.00 }
+            ]
+        },
+        bessa: {
+            nome: "Loja Bessa",
+            endereco: "Av. Pres. Afonso Pena, 1111, Bessa, João Pessoa - PB, 58035-030",
+            tabela: [
+                { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
+                { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
+                { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
+                { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
+                { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 },
+                { limite: 999, valor: 40.00 }
+            ]
+        }
+    };
 
     let map = null;
     let routingControl = null;
@@ -95,6 +134,9 @@
     }
 
     async function calcularFrete() {
+        const chaveLojaSelecionada = document.getElementById('lojaOrigem').value;
+        const dadosLoja = LOJAS_DADOS[chaveLojaSelecionada];
+
         const enderecoCliente = document.getElementById('endereco').value;
         const divResultado = document.getElementById('resultado');
         const divMap = document.getElementById('map');
@@ -105,13 +147,13 @@
         }
 
         divResultado.style.display = 'block';
-        divResultado.innerHTML = 'Calculando o trajeto real pelas ruas... ⏳';
+        divResultado.innerHTML = `Calculando trajeto saindo de <strong>${dadosLoja.nome}</strong>... ⏳`;
 
-        const origem = await geocodificar(ENDERECO_ORIGEM);
+        const origem = await geocodificar(dadosLoja.endereco);
         const destino = await geocodificar(enderecoCliente);
 
         if (!origem || !destino) {
-            divResultado.innerHTML = '❌ Não foi possível encontrar o endereço. Tente especificar incluindo o bairro e a cidade.';
+            divResultado.innerHTML = '❌ Não foi possível encontrar um dos endereços (loja ou cliente). Verifique os dados informados.';
             return;
         }
 
@@ -122,6 +164,8 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
+        } else {
+            map.setView([origem.lat, origem.lon], 13);
         }
 
         if (routingControl) {
@@ -144,7 +188,7 @@
                 styles: [{ color: '#007bff', opacity: 0.8, weight: 6 }] 
             },
             createMarker: function(i, wp) {
-                return L.marker(wp.latLng).bindPopup(i === 0 ? "Loja (Av. Camilo de Holanda)" : "Cliente");
+                return L.marker(wp.latLng).bindPopup(i === 0 ? dadosLoja.nome : "Cliente");
             }
         }).addTo(map);
 
@@ -153,19 +197,20 @@
             const distanciaMetros = rotas[0].summary.totalDistance;
             const distanciaKm = distanciaMetros / 1000;
 
-            // 1. Descobrir a taxa online baseada na tabela
+            // Busca a taxa online na tabela específica da loja selecionada
             let taxaOnline = 40.00;
-            for (let faixa of TABELA_FRETE) {
+            for (let faixa of dadosLoja.tabela) {
                 if (distanciaKm <= faixa.limite) {
                     taxaOnline = faixa.valor;
                     break;
                 }
             }
 
-            // 2. Calcular a Taxa com Retorno (+30% e arredondar para o próximo inteiro - Math.ceil)
+            // Calcula a Taxa com Retorno (+30% arredondada para o próximo inteiro)
             let taxaComRetorno = Math.ceil(taxaOnline * 1.30);
 
             divResultado.innerHTML = `
+                🏪 <strong>Origem:</strong> ${dadosLoja.nome}<br>
                 📍 <strong>Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br><br>
                 🔄 <strong>Taxa de Entrega com Retorno:</strong> R$ ${taxaComRetorno.toFixed(2)}<br>
                 💻 <strong>Taxa de Entrega Online:</strong> R$ ${taxaOnline.toFixed(2)}
@@ -174,7 +219,7 @@
 
         routingControl.on('routingerror', function(e) {
             console.error("Erro no OSRM Routing:", e);
-            divResultado.innerHTML = '❌ Erro ao calcular o trajeto nas ruas. Verifique se o endereço possui acesso viário válido.';
+            divResultado.innerHTML = '❌ Erro ao calcular o trajeto nas ruas. Verifique se o endereço do cliente possui acesso viário válido.';
         });
     }
 </script>
