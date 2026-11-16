@@ -53,11 +53,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script>
-    // Configuração das lojas com coordenadas exatas (latitude e longitude) para evitar falhas de busca
+    // Configuração das lojas com as coordenadas exatas fornecidas
     const LOJAS_DADOS = {
         centro: {
             nome: "Loja Centro",
-            lat: -7.1195, lon: -34.8810, // Coordenadas aproximadas da Av. Camilo de Holanda
+            lat: -7.12046060376896, 
+            lon: -34.877878247696444,
             tabela: [
                 { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
@@ -69,7 +70,8 @@
         },
         manaira: {
             nome: "Loja Manaíra",
-            lat: -7.1062, lon: -34.8315, // Coordenadas da Av. Gov. Flávio Ribeiro Coutinho
+            lat: -7.098598434812225, 
+            lon: -34.84490290351551,
             tabela: [
                 { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
@@ -81,7 +83,8 @@
         },
         mangabeira: {
             nome: "Loja Mangabeira",
-            lat: -7.1950, lon: -34.8250, // Coordenadas da Av. Hilton Souto Maior
+            lat: -7.161946461084374, 
+            lon: -34.83044736118659,
             tabela: [
                 { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
@@ -93,7 +96,8 @@
         },
         bessa: {
             nome: "Loja Bessa",
-            lat: -7.0850, lon: -34.8280, // Coordenadas da Av. Pres. Afonso Pena
+            lat: -7.064009913287581, 
+            lon: -34.84173194584224,
             tabela: [
                 { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
                 { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
@@ -119,7 +123,6 @@
     });
 
     async function geocodificar(endereco) {
-        // Garante que a busca procure dentro de João Pessoa para evitar ambiguidades
         const queryCompleta = endereco.toLowerCase().includes('joão pessoa') ? endereco : endereco + ", João Pessoa - PB";
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(queryCompleta);
         try {
@@ -151,7 +154,6 @@
         divResultado.style.display = 'block';
         divResultado.innerHTML = `Calculando trajeto saindo de <strong>${dadosLoja.nome}</strong>... ⏳`;
 
-        // Pega as coordenadas fixas da loja e busca as coordenadas do cliente digitado
         const origem = { lat: dadosLoja.lat, lon: dadosLoja.lon };
         const destino = await geocodificar(enderecoCliente);
 
