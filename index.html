@@ -27,9 +27,9 @@
     <h2>Calculadora de Frete por Rota</h2>
     <div class="form-group">
         <label for="endereco">Endereço do Cliente (aperte Enter para calcular):</label>
-        <input type="text" id="endereco" placeholder="Ex: Rua Exemplo, 123, Bairro, João Pessoa" onkeydown="verificarEnter(event)">
+        <input type="text" id="endereco" placeholder="Ex: Rua Exemplo, 123, Bairro, João Pessoa">
     </div>
-    <button onclick="calcularFrete()">Calcular Rota e Taxa</button>
+    <button id="btnCalcular">Calcular Rota e Taxa</button>
 
     <div id="resultado"></div>
     <div id="map"></div>
@@ -42,7 +42,7 @@
     // Endereço de partida da sua loja
     const ENDERECO_ORIGEM = "Av. Camilo de Holanda, 19, João Pessoa - PB";
 
-    // Sua nova tabela de taxas por km atualizada
+    // Tabela de taxas atualizada
     const TABELA_FRETE = [
         { limite: 1, valor: 7 },
         { limite: 2, valor: 8 },
@@ -64,19 +64,22 @@
         { limite: 18, valor: 31 },
         { limite: 19, valor: 33 },
         { limite: 20, valor: 34 },
-        { limite: 999, valor: 40.00 } // Acima de 20 km (taxa máxima de segurança)
+        { limite: 999, valor: 40.00 }
     ];
 
     let map = null;
     let routingControl = null;
 
-    // Dispara o cálculo ao apertar Enter
-    function verificarEnter(event) {
-        if (event.key === 'Enter' || event.keyCode === 13) {
-            event.preventDefault();
-            calcularFrete();
-        }
-    }
+    // Vinculando os eventos via JavaScript puro (evita erros de escopo do onclick inline)
+    document.addEventListener("DOMContentLoaded", function() {
+        document.getElementById("btnCalcular").addEventListener("click", calcularFrete);
+        document.getElementById("endereco").addEventListener("keydown", function(event) {
+            if (event.key === 'Enter' || event.keyCode === 13) {
+                event.preventDefault();
+                calcularFrete();
+            }
+        });
+    });
 
     async function geocodificar(endereco) {
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(endereco);
@@ -171,7 +174,7 @@
     }
 
     function aplicarTaxa(distanciaKm, tipoCalculo) {
-        let valorTaxa = 40.00; // Valor padrão caso ultrapasse os limites
+        let valorTaxa = 40.00;
         for (let faixa of TABELA_FRETE) {
             if (distanciaKm <= faixa.limite) {
                 valorTaxa = faixa.valor;
@@ -183,4 +186,10 @@
         divResultado.innerHTML = `
             <strong>Tipo:</strong> ${tipoCalculo}<br>
             <strong>📍 Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br>
-            <strong>💰 Taxa de Entre
+            <strong>💰 Taxa de Entrega:</strong> R$ ${valorTaxa.toFixed(2)}
+        `;
+    }
+</script>
+
+</body>
+</html>
