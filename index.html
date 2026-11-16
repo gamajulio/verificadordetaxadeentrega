@@ -130,7 +130,6 @@
     });
 
     async function geocodificar(enderecoOriginal) {
-        // Apenas limpeza essencial de abreviações e checagem direta
         let enderecoTratado = enderecoOriginal
             .replace(/\b(av|av\.)\b/gi, "Avenida")
             .replace(/\b(r|r\.)\b/gi, "Rua")
@@ -140,11 +139,10 @@
         const temLocalidade = /joão pessoa|bayeux|santa rita|cabedelo|pb/i.test(enderecoTratado);
         const queryCompleta = temLocalidade ? enderecoTratado : enderecoTratado + ", Paraíba";
 
-        // Uma única busca direta e limpa
         const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=3&q=` + encodeURIComponent(queryCompleta);
         
         try {
-            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteZeny/10.0' } });
+            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteZeny/11.0' } });
             const dados = await resposta.json();
             
             if (dados && dados.length > 0) {
@@ -155,7 +153,11 @@
                     const cidade = (addr.city || addr.town || addr.municipality || addr.city_district || '').toLowerCase();
                     
                     if (cidadesPermitidas.some(cidadeValida => cidade.includes(cidadeValida))) {
-                        return { lat: parseFloat(item.lat), lon: parseFloat(item.lon) };
+                        return { 
+                            lat: parseFloat(item.lat), 
+                            lon: parseFloat(item.lon),
+                            nomeCompleto: item.display_name // Retorna o endereço detalhado encontrado
+                        };
                     }
                 }
             }
@@ -268,6 +270,7 @@
 
                 if (distanciaKm > 40) {
                     divResultado.innerHTML = `
+                        📍 <strong>Endereço Encontrado:</strong> ${destino.nomeCompleto}<br><br>
                         🏪 <strong>Origem:</strong> ${dadosLoja.nome} ${foiAutomatico ? '(Mais próxima)' : ''}<br>
                         📍 <strong>Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br><br>
                         ❌ <strong>Consulta indisponível devido distância, contate Júlio para mais informações</strong>
@@ -292,6 +295,7 @@
                 const textoWhatsApp = `Sairá da unidade do ${dadosLoja.nomeCurto}. A taxa fica R$ ${valorRetornoFormatado} e por apenas R$ ${valorOnlineFormatado} se o pedido for pago todo via pix antecipadamente!`;
 
                 divResultado.innerHTML = `
+                    📍 <strong>Endereço Encontrado:</strong> ${destino.nomeCompleto}<br><br>
                     🏪 <strong>Origem:</strong> ${dadosLoja.nome} ${foiAutomatico ? '⚡ <em>(Mais próxima)</em>' : ''}<br>
                     📍 <strong>Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br><br>
                     🔄 <strong>Taxa de Entrega com Retorno:</strong> R$ ${valorRetornoFormatado}<br>
