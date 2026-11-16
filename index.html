@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Taxa de Entrega por Rota Real</title>
+    <title>Calculadora de Taxa de Entrega</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet Routing Machine CSS -->
@@ -17,9 +17,8 @@
         input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background-color: #28a745; color: white; border: none; padding: 10px 15px; width: 100%; border-radius: 4px; font-size: 16px; cursor: pointer; }
         button:hover { background-color: #218838; }
-        #resultado { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; }
+        #resultado { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; font-size: 16px; line-height: 1.5; }
         #map { height: 350px; margin-top: 15px; border-radius: 4px; display: none; }
-        /* Esconde a caixa de texto padrão feia do routing machine para focar só no mapa e no nosso resultado */
         .leaflet-routing-container { display: none !important; }
     </style>
 </head>
@@ -129,7 +128,6 @@
             map.removeControl(routingControl);
         }
 
-        // Configurando o roteador explicitamente para usar o OSRM público com suporte a rotas de carro
         routingControl = L.Routing.control({
             waypoints: [
                 L.latLng(origem.lat, origem.lon),
@@ -150,27 +148,30 @@
             }
         }).addTo(map);
 
-        // Evento de sucesso ao traçar a rota real pelas ruas
         routingControl.on('routesfound', function(e) {
             const rotas = e.routes;
             const distanciaMetros = rotas[0].summary.totalDistance;
             const distanciaKm = distanciaMetros / 1000;
 
-            let valorTaxa = 40.00;
+            // 1. Descobrir a taxa online baseada na tabela
+            let taxaOnline = 40.00;
             for (let faixa of TABELA_FRETE) {
                 if (distanciaKm <= faixa.limite) {
-                    valorTaxa = faixa.valor;
+                    taxaOnline = faixa.valor;
                     break;
                 }
             }
 
+            // 2. Calcular a Taxa com Retorno (+30% e arredondar para o próximo inteiro - Math.ceil)
+            let taxaComRetorno = Math.ceil(taxaOnline * 1.30);
+
             divResultado.innerHTML = `
-                <strong>🚗 Trajeto Real pelas Ruas:</strong> ${distanciaKm.toFixed(2)} km<br>
-                <strong>💰 Taxa de Entrega:</strong> R$ ${valorTaxa.toFixed(2)}
+                📍 <strong>Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br><br>
+                🔄 <strong>Taxa de Entrega com Retorno:</strong> R$ ${taxaComRetorno.toFixed(2)}<br>
+                💻 <strong>Taxa de Entrega Online:</strong> R$ ${taxaOnline.toFixed(2)}
             `;
         });
 
-        // Caso o servidor de rotas demore ou dê erro de conexão
         routingControl.on('routingerror', function(e) {
             console.error("Erro no OSRM Routing:", e);
             divResultado.innerHTML = '❌ Erro ao calcular o trajeto nas ruas. Verifique se o endereço possui acesso viário válido.';
