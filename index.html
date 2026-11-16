@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Taxa de Entrega</title>
+    <title>Calculadora de Taxa de Entrega por Rota Real</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet Routing Machine CSS -->
@@ -19,15 +19,17 @@
         button:hover { background-color: #218838; }
         #resultado { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; }
         #map { height: 350px; margin-top: 15px; border-radius: 4px; display: none; }
+        /* Esconde a caixa de texto padrão feia do routing machine para focar só no mapa e no nosso resultado */
+        .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Calculadora de Frete por Rota</h2>
+    <h2>Calculadora de Frete por Rota Real</h2>
     <div class="form-group">
         <label for="endereco">Endereço do Cliente (aperte Enter para calcular):</label>
-        <input type="text" id="endereco" placeholder="Ex: Rua Exemplo, 123, Bairro, João Pessoa">
+        <input type="text" id="endereco" placeholder="Ex: Av. Epitácio Pessoa, 500, João Pessoa">
     </div>
     <button id="btnCalcular">Calcular Rota e Taxa</button>
 
@@ -39,10 +41,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script>
-    // Endereço de partida da sua loja
     const ENDERECO_ORIGEM = "Av. Camilo de Holanda, 19, João Pessoa - PB";
 
-    // Tabela de taxas atualizada
     const TABELA_FRETE = [
         { limite: 1, valor: 7 },
         { limite: 2, valor: 8 },
@@ -70,7 +70,6 @@
     let map = null;
     let routingControl = null;
 
-    // Vinculando os eventos via JavaScript puro (evita erros de escopo do onclick inline)
     document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("btnCalcular").addEventListener("click", calcularFrete);
         document.getElementById("endereco").addEventListener("keydown", function(event) {
@@ -84,7 +83,7 @@
     async function geocodificar(endereco) {
         const url = `https://nominatim.openstreetmap.org/search?format=json&q=` + encodeURIComponent(endereco);
         try {
-            const resposta = await fetch(url);
+            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteApp/1.0' } });
             const dados = await resposta.json();
             if (dados && dados.length > 0) {
                 return { lat: parseFloat(dados[0].lat), lon: parseFloat(dados[0].lon) };
@@ -94,17 +93,6 @@
             console.error("Erro na geocodificação:", e);
             return null;
         }
-    }
-
-    function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * (Math.PI / 180);
-        const dLon = (lon2 - lon1) * (Math.PI / 180);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
     }
 
     async function calcularFrete() {
@@ -118,7 +106,7 @@
         }
 
         divResultado.style.display = 'block';
-        divResultado.innerHTML = 'Calculando o trajeto pelas ruas... ⏳';
+        divResultado.innerHTML = 'Calculando o trajeto real pelas ruas... ⏳';
 
         const origem = await geocodificar(ENDERECO_ORIGEM);
         const destino = await geocodificar(enderecoCliente);
@@ -141,53 +129,52 @@
             map.removeControl(routingControl);
         }
 
-        // Roteamento real pelas ruas
+        // Configurando o roteador explicitamente para usar o OSRM público com suporte a rotas de carro
         routingControl = L.Routing.control({
             waypoints: [
                 L.latLng(origem.lat, origem.lon),
                 L.latLng(destino.lat, destino.lon)
             ],
+            router: new L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1'
+            }),
             routeWhileDragging: false,
             showAlternatives: false,
             fitSelectedRoutes: true,
             language: 'pt',
-            lineOptions: { styles: [{ color: '#007bff', opacity: 0.8, weight: 6 }] },
+            lineOptions: { 
+                styles: [{ color: '#007bff', opacity: 0.8, weight: 6 }] 
+            },
             createMarker: function(i, wp) {
-                return L.marker(wp.latLng).bindPopup(i === 0 ? "Sua Loja" : "Cliente");
+                return L.marker(wp.latLng).bindPopup(i === 0 ? "Loja (Av. Camilo de Holanda)" : "Cliente");
             }
         }).addTo(map);
 
-        let rotaCalculadaComSucesso = false;
-
+        // Evento de sucesso ao traçar a rota real pelas ruas
         routingControl.on('routesfound', function(e) {
-            rotaCalculadaComSucesso = true;
-            const distanciaKm = e.routes[0].summary.totalDistance / 1000;
-            aplicarTaxa(distanciaKm, "🚗 Rota Real pelas Ruas");
+            const rotas = e.routes;
+            const distanciaMetros = rotas[0].summary.totalDistance;
+            const distanciaKm = distanciaMetros / 1000;
+
+            let valorTaxa = 40.00;
+            for (let faixa of TABELA_FRETE) {
+                if (distanciaKm <= faixa.limite) {
+                    valorTaxa = faixa.valor;
+                    break;
+                }
+            }
+
+            divResultado.innerHTML = `
+                <strong>🚗 Trajeto Real pelas Ruas:</strong> ${distanciaKm.toFixed(2)} km<br>
+                <strong>💰 Taxa de Entrega:</strong> R$ ${valorTaxa.toFixed(2)}
+            `;
         });
 
-        routingControl.on('routingerror', function() {
-            if (!rotaCalculadaComSucesso) {
-                const distanciaKm = calcularDistanciaHaversine(origem.lat, origem.lon, destino.lat, destino.lon);
-                aplicarTaxa(distanciaKm, "📏 Distância Estimada (Plano de Segurança)");
-            }
+        // Caso o servidor de rotas demore ou dê erro de conexão
+        routingControl.on('routingerror', function(e) {
+            console.error("Erro no OSRM Routing:", e);
+            divResultado.innerHTML = '❌ Erro ao calcular o trajeto nas ruas. Verifique se o endereço possui acesso viário válido.';
         });
-    }
-
-    function aplicarTaxa(distanciaKm, tipoCalculo) {
-        let valorTaxa = 40.00;
-        for (let faixa of TABELA_FRETE) {
-            if (distanciaKm <= faixa.limite) {
-                valorTaxa = faixa.valor;
-                break;
-            }
-        }
-
-        const divResultado = document.getElementById('resultado');
-        divResultado.innerHTML = `
-            <strong>Tipo:</strong> ${tipoCalculo}<br>
-            <strong>📍 Distância do Trajeto:</strong> ${distanciaKm.toFixed(2)} km<br>
-            <strong>💰 Taxa de Entrega:</strong> R$ ${valorTaxa.toFixed(2)}
-        `;
     }
 </script>
 
