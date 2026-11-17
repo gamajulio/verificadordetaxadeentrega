@@ -324,11 +324,11 @@
                     }
                 }
 
-                // Arredonda a taxa online para o próximo número inteiro (ex: 7,70 vira 8)
+                // 1. Taxa Online: Valor original da tabela arredondado para o próximo inteiro (ex: 7,70 vira 8)
                 let taxaOnline = Math.ceil(taxaOnlineTabela);
 
-                // Aplica 30% de acréscimo e arredonda para o próximo número inteiro (ex: 10,01 vira 11)
-                let taxaComRetorno = Math.ceil(taxaOnline * 1.30);
+                // 2. Taxa com Retorno: Aplica 30% em cima do valor ORIGINAL da tabela e arredonda para o próximo inteiro (ex: 7,70 * 1,30 = 10,01 -> vira 11)
+                let taxaComRetorno = Math.ceil(taxaOnlineTabela * 1.30);
 
                 const valorRetornoFormatado = taxaComRetorno.toFixed(2).replace('.', ',');
                 const valorOnlineFormatado = taxaOnline.toFixed(2).replace('.', ',');
