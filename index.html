@@ -46,8 +46,8 @@
     </div>
 
     <div class="form-group">
-        <label for="endereco">Endereço do Cliente (com número, bairro e cidade):</label>
-        <input type="text" id="endereco" placeholder="Ex: Av. Epitácio Pessoa, 500, João Pessoa">
+        <label for="endereco">Endereço ou CEP do Cliente (com número, bairro e cidade):</label>
+        <input type="text" id="endereco" placeholder="Ex: 58039-010, 500 ou Av. Epitácio Pessoa, 500">
     </div>
     
     <button id="btnCalcular">Calcular Rota e Taxa</button>
@@ -62,17 +62,32 @@
 <script>
     function gerarTabelaCompleta() {
         let tabela = [
-            { limite: 1, valor: 7 }, { limite: 2, valor: 8 }, { limite: 3, valor: 10 }, { limite: 4, valor: 11 },
-            { limite: 5, valor: 13 }, { limite: 6, valor: 14 }, { limite: 7, valor: 15 }, { limite: 8, valor: 17 },
-            { limite: 9, valor: 18 }, { limite: 10, valor: 20 }, { limite: 11, valor: 21 }, { limite: 12, valor: 23 },
-            { limite: 13, valor: 24 }, { limite: 14, valor: 26 }, { limite: 15, valor: 27 }, { limite: 16, valor: 28 },
-            { limite: 17, valor: 30 }, { limite: 18, valor: 31 }, { limite: 19, valor: 33 }, { limite: 20, valor: 34 }
+            { limite: 1, valor: 7.70 },
+            { limite: 2, valor: 7.70 },
+            { limite: 3, valor: 9.15 },
+            { limite: 4, valor: 10.60 },
+            { limite: 5, valor: 12.05 },
+            { limite: 6, valor: 13.50 },
+            { limite: 7, valor: 14.95 },
+            { limite: 8, valor: 16.40 },
+            { limite: 9, valor: 17.85 },
+            { limite: 10, valor: 19.30 },
+            { limite: 11, valor: 20.75 },
+            { limite: 12, valor: 22.20 },
+            { limite: 13, valor: 23.65 },
+            { limite: 14, valor: 25.10 },
+            { limite: 15, valor: 26.55 },
+            { limite: 16, valor: 28.00 },
+            { limite: 17, valor: 29.45 },
+            { limite: 18, valor: 30.90 },
+            { limite: 19, valor: 32.35 },
+            { limite: 20, valor: 33.80 }
         ];
         
-        let ultimoValor = 34;
+        let ultimoValor = 33.80;
         for (let km = 21; km <= 40; km++) {
             ultimoValor += 2;
-            tabela.push({ limite: km, valor: ultimoValor });
+            tabela.push({ limite: km, valor: Number(ultimoValor.toFixed(2)) });
         }
         return tabela;
     }
@@ -117,9 +132,9 @@
         const inputEndereco = document.getElementById("endereco");
         const btnCalcular = document.getElementById("btnCalcular");
 
-        localStorage.removeItem('zeny_historico_fretes');
-
-        btnCalcular.addEventListener("click", () => iniciarCalculo());
+        btnCalcular.addEventListener("click", function() {
+            iniciarCalculo();
+        });
 
         inputEndereco.addEventListener("keydown", function(event) {
             if (event.key === 'Enter' || event.keyCode === 13) {
@@ -130,7 +145,37 @@
     });
 
     async function geocodificar(enderecoOriginal) {
-        let enderecoTratado = enderecoOriginal
+        let textoBusca = enderecoOriginal.trim();
+
+        // Detecção e tratamento de CEP
+        const matchCep = textoBusca.match(/\b\d{5}-?\d{3}\b/);
+        
+        if (matchCep) {
+            const cepLimpo = matchCep[0].replace('-', '');
+            const complementoNumero = textoBusca.replace(matchCep[0], '').replace(/^[,\s-]+/, '').trim();
+
+            try {
+                const resCep = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+                const dadosCep = await resCep.json();
+
+                if (!dadosCep.erro) {
+                    let rua = dadosCep.logradouro || '';
+                    let bairro = dadosCep.bairro || '';
+                    let cidade = dadosCep.localidade || 'João Pessoa';
+                    let uf = dadosCep.uf || 'PB';
+
+                    if (rua) {
+                        textoBusca = `${rua}${complementoNumero ? ', ' + complementoNumero : ''}, ${bairro}, ${cidade} - ${uf}`;
+                    } else {
+                        textoBusca = `${complementoNumero ? complementoNumero + ', ' : ''}${bairro ? bairro + ', ' : ''}${cidade} - ${uf}`;
+                    }
+                }
+            } catch (err) {
+                console.warn("Aviso: Falha na consulta do ViaCEP, seguindo com o texto original...", err);
+            }
+        }
+
+        let enderecoTratado = textoBusca
             .replace(/\b(av|av\.)\b/gi, "Avenida")
             .replace(/\b(r|r\.)\b/gi, "Rua")
             .replace(/\b(tr|trav\.)\b/gi, "Travessa")
@@ -142,24 +187,15 @@
         const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=3&q=` + encodeURIComponent(queryCompleta);
         
         try {
-            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteZeny/11.0' } });
+            const resposta = await fetch(url, { headers: { 'User-Agent': 'CalculadoraFreteZeny/12.2' } });
             const dados = await resposta.json();
             
             if (dados && dados.length > 0) {
-                const cidadesPermitidas = ['joão pessoa', 'bayeux', 'santa rita', 'cabedelo'];
-                
-                for (let item of dados) {
-                    const addr = item.address || {};
-                    const cidade = (addr.city || addr.town || addr.municipality || addr.city_district || '').toLowerCase();
-                    
-                    if (cidadesPermitidas.some(cidadeValida => cidade.includes(cidadeValida))) {
-                        return { 
-                            lat: parseFloat(item.lat), 
-                            lon: parseFloat(item.lon),
-                            nomeCompleto: item.display_name // Retorna o endereço detalhado encontrado
-                        };
-                    }
-                }
+                return { 
+                    lat: parseFloat(dados[0].lat), 
+                    lon: parseFloat(dados[0].lon),
+                    nomeCompleto: dados[0].display_name
+                };
             }
             return null;
         } catch (e) {
@@ -199,7 +235,7 @@
         const divMap = document.getElementById('map');
 
         if (!enderecoCliente) {
-            alert('Por favor, digite o endereço do cliente.');
+            alert('Por favor, digite o endereço ou CEP do cliente.');
             return;
         }
 
@@ -212,7 +248,7 @@
             const destino = await geocodificar(enderecoCliente);
 
             if (!destino) {
-                divResultado.innerHTML = '❌ Endereço não encontrado ou fora da nossa área de atendimento (João Pessoa, Bayeux, Santa Rita e Cabedelo). Verifique se digitou o número e a cidade corretamente.';
+                divResultado.innerHTML = '❌ Endereço não encontrado. Verifique se digitou o CEP ou número corretamente.';
                 return;
             }
 
@@ -278,16 +314,20 @@
                     return;
                 }
 
-                let taxaOnline = 0;
+                let taxaOnlineTabela = 0;
                 const kmArredondado = Math.ceil(distanciaKm);
                 
                 for (let faixa of dadosLoja.tabela) {
                     if (kmArredondado <= faixa.limite) {
-                        taxaOnline = faixa.valor;
+                        taxaOnlineTabela = faixa.valor;
                         break;
                     }
                 }
 
+                // Arredonda a taxa online para o próximo número inteiro (ex: 7,70 vira 8)
+                let taxaOnline = Math.ceil(taxaOnlineTabela);
+
+                // Aplica 30% de acréscimo e arredonda para o próximo número inteiro (ex: 10,01 vira 11)
                 let taxaComRetorno = Math.ceil(taxaOnline * 1.30);
 
                 const valorRetornoFormatado = taxaComRetorno.toFixed(2).replace('.', ',');
